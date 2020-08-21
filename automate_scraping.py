@@ -1,22 +1,48 @@
 # Import required libraries
-from googleapiclient.discovery import build
+import os
+import argparse
+import pandas as pd
+import xlsxwriter
+import matplotlib.pyplot as plt
 from apiclient.discovery import build
 from apiclient.errors import HttpError
 from oauth2client.tools import argparser
-import pandas as pd
-import matplotlib.pyplot as plt
-import os
+from googleapiclient.discovery import build
+
 
 # CREDENTIALS
-DEVELOPER_KEY = 'AIzaSyCqDG9wksSy-wNaTb5mQ2i9n6NxYeDWHjI'
+DEVELOPER_KEY = 'IOIOIUFUJFKDI'
 YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
-query_link = ['https://www.youtube.com/watch?v=udEFwab2txA', 'https://www.youtube.com/watch?v=FKihkRS4_iI', 'https://www.youtube.com/watch?v=s98fD6ILORo', 'https://www.youtube.com/watch?v=1Hbh3VN4IU4']
 
-youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,developerKey=DEVELOPER_KEY) # Building a service object
+# YOUTUBE API BUILD OBJECT
+youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION,developerKey=DEVELOPER_KEY) 
 
-def yt_query_stats(queries, max_results=1, order="relevance", token=None, location=None, location_radius=None):#search upto max 50 videos based on query
+# Passed in some links also queries can be passed in here. 
+query_link = ['https://www.youtube.com/watch?v=udEFwab2txA', 'https://www.youtube.com/watch?v=0r6C3z3TEKw', 
+			'https://www.youtube.com/watch?v=xC-c7E5PK0Y', 'https://www.youtube.com/watch?v=3hcQKZ774QQ',
+			'https://www.youtube.com/watch?v=z2DAfhsg0I8', 'https://www.youtube.com/watch?v=sa-TUpSx1JA',
+			'https://www.youtube.com/watch?v=Tzl0ELY_TiM', 'https://www.youtube.com/watch?v=vEq6vmKIJwo',
+			'https://www.youtube.com/watch?v=iURPY28jOD4', 'https://www.youtube.com/watch?v=X3paOmcrTjQ',
+			'https://www.youtube.com/watch?v=l8KqHviJ-bg', 'https://www.youtube.com/watch?v=JntENdz4g1M',
+			'https://www.youtube.com/watch?v=Ck0ozfJV9-g', 'https://www.youtube.com/watch?v=GWGDlM1KNTU',
+			'https://www.youtube.com/watch?v=1w3iHEBv1vo', 'https://www.youtube.com/watch?v=HixtlBP4IwY'] # 16 Query Links
+
+
+
+#, 'https://www.youtube.com/watch?v=FKihkRS4_iI', 'https://www.youtube.com/watch?v=s98fD6ILORo', 'https://www.youtube.com/watch?v=1Hbh3VN4IU4']
+# _scrapedFile = open(r'C:\Users\Rohan Shetty\Desktop\YouTube Data Scraper1\video_links.txt', 'r')
+# query_link = [f for f in _scrapedFile]
+# print(query_link)
+# print('lenght of query', len(query_link))
+
+
+def yt_query_stats(queries, max_results=500, order="relevance", token=None, location=None, location_radius=None):
+	'''
+	Func: Sends a request to YouTube V3 API which returns a search response to a query/query links passed in 
+	'''
+	
 	response = {}
 	for query in queries:
 		search_response = youtube.search().list(
@@ -32,8 +58,9 @@ def yt_query_stats(queries, max_results=1, order="relevance", token=None, locati
 
 
 		items = search_response['items'] #50 "items"
+		print('len of items', len(items))
 
-		#Assign 1st results to title, channelId, datePublished then print
+		#Assign 1st results to title, channelId, datePublished 
 		title = items[0]['snippet']['title']
 		channelId = items[0]['snippet']['channelId']
 		datePublished = items[0]['snippet']['publishedAt']
@@ -42,10 +69,12 @@ def yt_query_stats(queries, max_results=1, order="relevance", token=None, locati
 
 	return response
 
-# store all the results in a dict 
 def store_results(response):
 
-	#     #create variables to store your values
+	'''
+	Func: This is store the results from response in a form of dict, so that we can later export as a dataframe to csv
+	'''
+
 	title, channelId, channelTitle = [], [], []
 	categoryId, videoId, publishedDate = [], [], []
 	viewCount, likeCount, dislikeCount = [], [], []
@@ -98,7 +127,7 @@ def store_results(response):
 
 				        
 
-				youtube_dict = {'query':query_link[res], 'channelTitle': channelTitle,
+				youtube_dict = {query:query_link[res], 'channelTitle': channelTitle,
 				            'categoryId':categoryId,'title':title, 'publishedAt':publishedDate,
 				            'viewCount':viewCount,'likeCount':likeCount,'dislikeCount':dislikeCount,
 				            'commentCount':commentCount}
@@ -110,11 +139,22 @@ def store_results(response):
 
 
 def write_to_excel(query_link, path, filename):
+	'''
+	Func: Writes the scraped data to dataframe which's then written to xlsx file.
+	'''
 
 	response = yt_query_stats(query_link)
 	results = store_results(response)
-	yt_data = pd.DataFrame(results)
+	yt_data = pd.DataFrame(results) # Write the results to Dataframe
 
+	# Create or Add a new Worksheet
+	if os.path.join(path, filename):
+		workbook = xlsxwriter.Workbook(filename)
+		worksheet = workbook.add_worksheet()
+	else:
+		workbook = xlsxwriter.Workbook(os.path.join(path,filename))
+
+	# Write Dataframe to the Excel File
 	try:
 		yt_data.to_excel(os.path.join(path, filename),
                   sheet_name= filename)
@@ -123,6 +163,6 @@ def write_to_excel(query_link, path, filename):
 		return e
 
 
-path = r'C:\Users\Rohan Shetty\Desktop\YouTube Data Scraper'
+path = r'C:\Users\Rohan Shetty\Desktop\YouTube Data Scraper1'
 
-print(write_to_excel(query_link, path, filename='test.xlsx'))
+print(write_to_excel(query_link, path, filename='test10.xlsx')) # Excel File with all the Data*
